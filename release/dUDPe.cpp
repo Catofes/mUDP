@@ -29,7 +29,6 @@ void MyDatagrameSocket::gthread()
 	typedef void* (*FUNC)(void*);//定义FUNC类型是一个指向函数的指针，该函数参数为void*，返回值为void*  
 	FUNC callback = (FUNC)&MyDatagrameSocket::run;//强制转换func()的类型  
 	int ret=pthread_create(&tids, NULL,callback , this);
-	cout<<"create Thread:"<<ret<<endl;
 };
 
 void MyDatagrameSocket::run()
@@ -37,19 +36,10 @@ void MyDatagrameSocket::run()
 	while(true){
 		int n=0;
 		n=receiveBytes(this->localbuffer, sizeof(this->localbuffer)-1,0);
-		cout<<"BBBBBBBBBBBBBBBBBBBBBBBBBB:	"<<n<<endl;;
 		if(n>0&&n<2047){
-			cout <<"receive from remote" <<remoteAddress.toString() << " -> " <<address().toString()<<" : "<< std::endl;
-			for(int j=0;j<n;j++)
-			  cout<<hex<<(((int)localbuffer[j])&255)<<"|";
-			cout<<endl;
 			this->count++;
 			int randomnum=this->lastid;
 			if(this->count%10==2)randomnum=rand()%N;
-			//if(n==22)
-			//  randomnum=this->lastid;
-			
-			cout <<"send to local" <<listener[randomnum].localSocketAddress->toString() << " -> " <<sender.toString()<< std::endl;
 			listener[randomnum].localSocket->sendTo(localbuffer, n, sender);
 		}
 	}
@@ -62,7 +52,6 @@ int Sender::send(char *buffer, int n, SocketAddress *sender,SocketAddress * rece
 		{
 			remoteSocket[i]->sendTo(buffer, n,remoteAddress);
 			remoteSocket[i]->lastid=id;
-			cout <<"send to remote" <<remoteSocket[i]->address().toString() << " -> " <<remoteAddress.toString()<<" : "<< std::endl;
 			return 0;
 		}
 	}
@@ -74,12 +63,7 @@ void Listener::run()
 	while(true){
 		int n=0;
 		n=localSocket->receiveFrom(this->localbuffer, sizeof(this->localbuffer)-1,*sender);
-		cout<<"aaaaaaaaaaaaaaaaaaaaa:	"<<n<<endl;
 		if(n>0&&n<2047){
-			std::cout <<"receive from local :"<< sender->toString() << " -> "<<localSocketAddress->toString()<<" :" << std::endl;
-			for(int j=0;j<n;j++)
-			  cout<<hex<<(((int)localbuffer[j])&255)<<"|";
-			cout<<endl;
 			remote->send(localbuffer,n,sender,localSocketAddress,this->id);
 		}
 	}
@@ -89,7 +73,6 @@ void Listener::gthread()
 	typedef void* (*FUNC)(void*);//定义FUNC类型是一个指向函数的指针，该函数参数为void*，返回值为void*  
 	FUNC callback = (FUNC)&Listener::run;//强制转换func()的类型  
 	int ret=pthread_create(&tids, NULL, callback , this);
-	cout<<"create Thread:"<<ret<<endl;
 };
 
 
@@ -101,7 +84,6 @@ int main()
 		listener[i].gthread();
 	}
 	pthread_exit(NULL);
-	cout<<"hehe"<<endl;
 }
 
 /*
