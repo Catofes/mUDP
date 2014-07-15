@@ -7,7 +7,7 @@
 #include "Poco/Net/DatagramSocket.h"
 #include "Poco/Net/IPAddress.h"
 #include "Poco/Exception.h" 
-#include "client.h"
+#include "server.h"
 using namespace std;
 using namespace Poco;
 using namespace Poco::Net;
@@ -18,7 +18,7 @@ typedef void* (*FUNC)(void*);
 
 const int N=10;
 ReceiveDatagramSocket listener[N];
-SocketAddress connectAddress("222.29.157.251",10085);
+SocketAddress connectAddress("127.0.0.1",10085);
 
 void SendDatagramSocket::run()
 {
