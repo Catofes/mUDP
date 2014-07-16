@@ -14,7 +14,6 @@ class SendDatagramSocket : public MyDatagramSocket
 	public:
 		SocketAddress *remoteAddress;
 		SocketAddress *receiveAddress;
-		
 		SendDatagramSocket()
 		{
 			remoteAddress=new SocketAddress;
@@ -28,7 +27,7 @@ class Sender
 {
 	public:
 		vector<SendDatagramSocket*> sendSockets;
-		void send(char * buffer,int n, SocketAddress sender);
+		void send(char * buffer,int n, SocketAddress *sender);
 		void AddSocket(SocketAddress * sender);
 };
 

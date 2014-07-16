@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <string>
+#include <cstring>
 #include <vector>
 #include <stdlib.h>
 #include <pthread.h>
@@ -17,7 +18,10 @@ using namespace Poco::Net;
 typedef void* (*FUNC)(void*);
 
 ReceiveDatagramSocket listener;
-SocketAddress connectAddress("127.0.0.1",8880);
+string Host="128.199.152.20";
+int StartPort=8880;
+int EndPort=8889;
+SocketAddress connectAddress(Host,StartPort);
 
 void SendDatagramSocket::run()
 {
@@ -41,18 +45,19 @@ void SendDatagramSocket::startThread()
 #endif
 }
 
-void Sender::send(char * buffer,int n, SocketAddress sender)
+void Sender::send(char * buffer,int n, SocketAddress *sender)
 {
 	for(int i=this->sendSockets.size()-1;i>=0;i--){
-		if(sender.toString()==this->sendSockets[i]->receiveAddress->toString()){
-			sendSockets[i]->sendTo(buffer,n,*(sendSockets[i]->remoteAddress));
+		if(sender->toString()==this->sendSockets[i]->receiveAddress->toString()){
+			SocketAddress SendToAddress(Host,StartPort+rand()%(EndPort-StartPort));
+			sendSockets[i]->sendTo(buffer,n,SendToAddress);
 #ifdef DEBUG
 			cout<<sender->toString()<<" -> "<<sendSockets[i]->remoteAddress->toString()<<endl;
 #endif
 			return ;
 		}
 	}
-	AddSocket(&sender);
+	AddSocket(sender);
 	send(buffer,n,sender);
 }
 
@@ -61,7 +66,6 @@ void Sender::AddSocket(SocketAddress *sender)
 	SendDatagramSocket *newsocket=new SendDatagramSocket;
 	newsocket->receiveAddress=new SocketAddress(*sender);
 	newsocket->remoteAddress=new SocketAddress(connectAddress);
-	//newsocket->connect(connectAddress);
 	newsocket->startThread();
 	this->sendSockets.push_back(newsocket);
 }
@@ -79,7 +83,7 @@ void ReceiveDatagramSocket::run()
 	while(true){
 		int n=this->receiveFrom(this->localbuffer, sizeof(this->localbuffer)-1, *(this->receiveAddress));
 		if(n>0&&n<2048)
-			sender->send(this->localbuffer, n,*(this->receiveAddress));
+			sender->send(this->localbuffer, n,this->receiveAddress);
 	}
 }
 
@@ -92,8 +96,18 @@ void ReceiveDatagramSocket::startThread()
 
 int main(int argc,char **argv)
 {
+	if (argc < 5)
+	{   
+		cout<<" Please Input As REMOTEIPADDRESS STARTPORT ENDPORT LOCALPORT."<<endl;
+		return 0;
+	} 
+	string IPADDRESS=argv[1];
+	Host=IPADDRESS;
+	StartPort=atoi(argv[2]);
+	EndPort=atoi(argv[3]);
+	
 	Sender sender;
-	listener.init("0.0.0.0",8000, &sender);
+	listener.init("0.0.0.0",atoi(argv[4]), &sender);
 	listener.startThread();
 	pthread_exit(NULL);
 }
