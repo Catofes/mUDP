@@ -3,6 +3,8 @@ mUDP
 
 This program split one udp socket to amount udps. In order to obfuscate the data.
 
+You Need LIBPOCO to Make and Run.
+
 ###How to use
 
 ####Server
