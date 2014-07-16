@@ -1,6 +1,8 @@
 mUDP
 =========
 
+This program split one udp socket to amount udps. In order to obfuscate the data.
+
 ###How to use
 
 ####Server
