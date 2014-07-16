@@ -13,7 +13,7 @@ using namespace std;
 using namespace Poco;
 using namespace Poco::Net;
 
-//#define DEBUG
+#define DEBUG
 
 typedef void* (*FUNC)(void*);
 
@@ -21,7 +21,7 @@ ReceiveDatagramSocket listener;
 string Host="128.199.152.20";
 int StartPort=8880;
 int EndPort=8889;
-SocketAddress connectAddress(Host,StartPort);
+SocketAddress *connectAddress;
 
 void SendDatagramSocket::run()
 {
@@ -29,7 +29,7 @@ void SendDatagramSocket::run()
 		int n=receiveFrom(this->localbuffer,sizeof(this->localbuffer)-1,*(this->remoteAddress));
 		if(n>0&&n<2048){
 #ifdef DEBUG
-			cout<<this->remoteAddress->toString()<<" -> "<<this->receiveAddress->toString()<<endl;			
+			cout<<"GET :"<<this->remoteAddress->toString()<<" -> "<<this->receiveAddress->toString()<<endl;			
 #endif
 			listener.sendTo(this->localbuffer, n, *(this->receiveAddress));
 		}
@@ -52,7 +52,7 @@ void Sender::send(char * buffer,int n, SocketAddress *sender)
 			SocketAddress SendToAddress(Host,StartPort+rand()%(EndPort-StartPort));
 			sendSockets[i]->sendTo(buffer,n,SendToAddress);
 #ifdef DEBUG
-			cout<<sender->toString()<<" -> "<<sendSockets[i]->remoteAddress->toString()<<endl;
+			cout<<"SEND:"<<sender->toString()<<" -> "<<SendToAddress.toString()<<endl;
 #endif
 			return ;
 		}
@@ -65,7 +65,7 @@ void Sender::AddSocket(SocketAddress *sender)
 {
 	SendDatagramSocket *newsocket=new SendDatagramSocket;
 	newsocket->receiveAddress=new SocketAddress(*sender);
-	newsocket->remoteAddress=new SocketAddress(connectAddress);
+	newsocket->remoteAddress=new SocketAddress(*connectAddress);
 	newsocket->startThread();
 	this->sendSockets.push_back(newsocket);
 }
@@ -105,7 +105,8 @@ int main(int argc,char **argv)
 	Host=IPADDRESS;
 	StartPort=atoi(argv[2]);
 	EndPort=atoi(argv[3]);
-	
+	connectAddress=new SocketAddress(Host,StartPort);
+
 	Sender sender;
 	listener.init("0.0.0.0",atoi(argv[4]), &sender);
 	listener.startThread();
