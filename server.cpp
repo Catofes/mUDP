@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 	SocketAddress send(remoteipaddr,port);
 	connectAddress=send;
 	ReceiveDatagramSocket temp[N];
-	listener=temp;
+	listener=new ReceiveDatagramSocket[N];
 	Sender sender;
 	for(int i=0;i<N;i++){
 		listener[i].init("0.0.0.0",startport+i, &sender);
