@@ -16,8 +16,8 @@ using namespace Poco::Net;
 
 typedef void* (*FUNC)(void*);
 
-const int N=10;
-ReceiveDatagramSocket listener[N];
+int N=10;
+ReceiveDatagramSocket *listener;
 SocketAddress connectAddress("127.0.0.1",10085);
 
 void SendDatagramSocket::run()
@@ -90,11 +90,27 @@ void ReceiveDatagramSocket::startThread()
 	cout<<"Start Listening at: "<<this->listeningAddress->toString()<<endl;
 }
 
-int main()
+int main(int argc, char **argv)
 {
+	if (argc < 5){
+		cout<<"Please Input STARTPORT ENDPORT REMOTEIPADDR REMOTEPORT."<<endl;
+		return 0;
+	}
+	int startport=atoi(argv[1]);
+	N=atoi(argv[2])-startport+1;
+	if(N<=0){
+		cout<<"Error Input"<<endl;
+		return 0;
+	}
+	string remoteipaddr=argv[3];
+	int port=atoi(argv[4]);
+	SocketAddress send(remoteipaddr,port);
+	connectAddress=send;
+	ReceiveDatagramSocket temp[N];
+	listener=temp;
 	Sender sender;
 	for(int i=0;i<N;i++){
-		listener[i].init("0.0.0.0",8880+i, &sender);
+		listener[i].init("0.0.0.0",startport+i, &sender);
 		listener[i].startThread();
 	}
 	pthread_exit(NULL);
