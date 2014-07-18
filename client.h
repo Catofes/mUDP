@@ -14,8 +14,10 @@ class SendDatagramSocket : public MyDatagramSocket
 	public:
 		SocketAddress *remoteAddress;
 		SocketAddress *receiveAddress;
+		int sendPortNum;
 		SendDatagramSocket()
 		{
+			sendPortNum=0;
 			remoteAddress=new SocketAddress;
 			receiveAddress=new SocketAddress;
 		}

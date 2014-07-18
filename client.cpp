@@ -49,7 +49,15 @@ void Sender::send(char * buffer,int n, SocketAddress *sender)
 {
 	for(int i=this->sendSockets.size()-1;i>=0;i--){
 		if(sender->toString()==this->sendSockets[i]->receiveAddress->toString()){
-			SocketAddress SendToAddress(Host,StartPort+rand()%(EndPort-StartPort+1));
+			if(rand()%n-100<0)
+			  if(rand()%100<30){
+				  this->sendSockets[i]->sendPortNum=StartPort+rand()%(EndPort-StartPort+1);
+			  }else{
+				  StartPort+rand()%(EndPort-StartPort+1);
+			  }
+			  else
+				rand()%100;
+			SocketAddress SendToAddress(Host,this->sendSockets[i]->sendPortNum);
 			sendSockets[i]->sendTo(buffer,n,SendToAddress);
 #ifdef DEBUG
 			cout<<"SEND:"<<sender->toString()<<" -> "<<SendToAddress.toString()<<endl;
@@ -66,6 +74,7 @@ void Sender::AddSocket(SocketAddress *sender)
 	SendDatagramSocket *newsocket=new SendDatagramSocket;
 	newsocket->receiveAddress=new SocketAddress(*sender);
 	newsocket->remoteAddress=new SocketAddress(*connectAddress);
+	newsocket->sendPortNum=StartPort+rand()%(EndPort-StartPort+1);
 	newsocket->startThread();
 	this->sendSockets.push_back(newsocket);
 }
@@ -83,7 +92,7 @@ void ReceiveDatagramSocket::run()
 	while(true){
 		int n=this->receiveFrom(this->localbuffer, sizeof(this->localbuffer)-1, *(this->receiveAddress));
 		if(n>0&&n<2048)
-			sender->send(this->localbuffer, n,this->receiveAddress);
+		  sender->send(this->localbuffer, n,this->receiveAddress);
 	}
 }
 
