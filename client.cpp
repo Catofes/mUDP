@@ -49,7 +49,7 @@ void Sender::send(char * buffer,int n, SocketAddress *sender)
 {
 	for(int i=this->sendSockets.size()-1;i>=0;i--){
 		if(sender->toString()==this->sendSockets[i]->receiveAddress->toString()){
-			SocketAddress SendToAddress(Host,StartPort+rand()%(EndPort-StartPort));
+			SocketAddress SendToAddress(Host,StartPort+rand()%(EndPort-StartPort+1));
 			sendSockets[i]->sendTo(buffer,n,SendToAddress);
 #ifdef DEBUG
 			cout<<"SEND:"<<sender->toString()<<" -> "<<SendToAddress.toString()<<endl;

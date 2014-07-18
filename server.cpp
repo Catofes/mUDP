@@ -45,7 +45,7 @@ void SendDatagramSocket::startThread()
 void Sender::send(char * buffer,int n, SocketAddress *sender)
 {
 	for(int i=this->sendSockets.size()-1;i>=0;i--){
-		if(sender->toString()==this->sendSockets[i]->receiveAddress->toString()){
+		if(sender->toString()==this->sendSockets[i]->receiveAddressString){
 			sendSockets[i]->sendTo(buffer,n,*(sendSockets[i]->remoteAddress));
 #ifdef DEBUG
 			cout<<sender->toString()<<" -> "<<sendSockets[i]->remoteAddress->toString()<<endl;
@@ -61,6 +61,7 @@ void Sender::AddSocket(SocketAddress *sender)
 {
 	SendDatagramSocket *newsocket=new SendDatagramSocket;
 	newsocket->receiveAddress=new SocketAddress(*sender);
+	newsocket->receiveAddressString=newsocket->receiveAddress->toString();
 	newsocket->remoteAddress=new SocketAddress(connectAddress);
 	newsocket->startThread();
 	this->sendSockets.push_back(newsocket);
