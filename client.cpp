@@ -49,7 +49,7 @@ void Sender::send(char * buffer,int n, SocketAddress *sender)
 {
 	for(int i=this->sendSockets.size()-1;i>=0;i--){
 		if(sender->toString()==this->sendSockets[i]->receiveAddress->toString()){
-			if(rand()%n-100<0)
+			if(rand()%((n-50)>0?n-50:1)<50)
 			  if(rand()%100<30){
 				  this->sendSockets[i]->sendPortNum=StartPort+rand()%(EndPort-StartPort+1);
 			  }else{
