@@ -15,8 +15,10 @@ class SendDatagramSocket : public MyDatagramSocket
 		SocketAddress *remoteAddress;
 		SocketAddress *receiveAddress;
 		string receiveAddressString;
+		int sendid;
 		SendDatagramSocket()
 		{
+			sendid=0;
 			receiveAddressString="";
 			remoteAddress=new SocketAddress;
 			receiveAddress=new SocketAddress;

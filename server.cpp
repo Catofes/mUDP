@@ -28,7 +28,13 @@ void SendDatagramSocket::run()
 #ifdef DEBUG
 			cout<<this->remoteAddress->toString()<<" -> "<<this->receiveAddress->toString()<<endl;			
 #endif
-			listener[rand()%N].sendTo(this->localbuffer, n, *(this->receiveAddress));
+			if(rand()%((n-50)>0?n-50:1)<50)
+			  if(rand()%100<30){
+				  this->sendid=rand()%N;
+			  }else{
+				  rand()%N;
+			  }
+			listener[this->sendid].sendTo(this->localbuffer, n, *(this->receiveAddress));
 		}
 	}
 }
