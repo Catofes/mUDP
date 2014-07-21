@@ -33,7 +33,6 @@ void SendDatagramSocket::run()
 			this->buffers[id][0]=this->localbuffer[0];
 			this->waitTime++;
 			this->send();
-			return ;
 		}
 	}
 }
