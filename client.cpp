@@ -28,10 +28,12 @@ void SendDatagramSocket::run()
 	while(true){
 		int n=receiveFrom(this->localbuffer,sizeof(this->localbuffer)-1,*(this->remoteAddress));
 		if(n>0&&n<2048){
-#ifdef DEBUG
-			cout<<"GET :"<<this->remoteAddress->toString()<<" -> "<<this->receiveAddress->toString()<<endl;			
-#endif
-			listener.sendTo(this->localbuffer, n, *(this->receiveAddress));
+			char id=localbuffer[0]%128;
+			memcpy(this->buffers[id]+1,this->localbuffer+1,(n-1)*sizeof(char));
+			this->buffers[id][0]=this->localbuffer[0];
+			this->waitTime++;
+			this->send();
+			return ;
 		}
 	}
 }
@@ -45,11 +47,39 @@ void SendDatagramSocket::startThread()
 #endif
 }
 
+void SendDatagramSocket::send()
+{
+	if(this->onSend==1)return;
+	this->onSend=1;
+	int maxloop=0;
+	if(this->waitTime>24){
+		while(this->buffers[this->receivePackageId][0]<0&&maxloop<32)
+		  this->receivePackageId=(this->receivePackageId+1)%128;
+		this->waitTime=0;
+	}   
+	maxloop=0;
+	while(this->buffers[this->receivePackageId][0]>=0&&maxloop<32){
+		int n;
+		memcpy(&n,this->buffers[this->receivePackageId]+1,sizeof(int));
+		//cout<<this->buffers[this->receivePackageId][0];
+		listener.sendTo(this->buffers[this->receivePackageId]+5,n,*(this->receiveAddress));
+#ifdef DEBUG
+		cout<<"GET :"<<this->remoteAddress->toString()<<" -> "<<this->receiveAddress->toString()<<" Length: "<<n<<endl;
+#endif
+		this->buffers[this->receivePackageId][0]=-1;
+		this->receivePackageId=(this->receivePackageId+1)%128;
+		this->waitTime--;
+		maxloop++;
+	}   
+	this->onSend=0;
+	return;
+}
+
 void Sender::send(char * buffer,int n, SocketAddress *sender)
 {
 	for(int i=this->sendSockets.size()-1;i>=0;i--){
 		if(sender->toString()==this->sendSockets[i]->receiveAddress->toString()){
-			buffer[0]=this->sendSockets[i]->packageId;
+			buffer[0]=this->sendSockets[i]->sendPackageId;
 			if(rand()%((n-50)>0?n-50:1)<50)
 			  if(rand()%100<30){
 				  this->sendSockets[i]->sendPortNum=StartPort+rand()%(EndPort-StartPort+1);
@@ -61,9 +91,9 @@ void Sender::send(char * buffer,int n, SocketAddress *sender)
 			SocketAddress SendToAddress(Host,this->sendSockets[i]->sendPortNum);
 			sendSockets[i]->sendTo(buffer,n,SendToAddress);
 #ifdef DEBUG
-			cout<<"SEND:"<<sender->toString()<<" -> "<<SendToAddress.toString()<<buffer[0]<<endl;
+			cout<<"SEND:"<<sender->toString()<<" -> "<<SendToAddress.toString()<<" Lenght: "<<n-5<<endl;
 #endif
-			this->sendSockets[i]->packageId=(this->sendSockets[i]->packageId+1)%128;
+			this->sendSockets[i]->sendPackageId=(this->sendSockets[i]->sendPackageId+1)%128;
 			return ;
 		}
 	}
@@ -75,7 +105,7 @@ void Sender::AddSocket(SocketAddress *sender)
 {
 	SendDatagramSocket *newsocket=new SendDatagramSocket;
 	newsocket->receiveAddress=new SocketAddress(*sender);
-	newsocket->remoteAddress=new SocketAddress(*connectAddress);
+newsocket->remoteAddress=new SocketAddress(*connectAddress);
 	newsocket->sendPortNum=StartPort+rand()%(EndPort-StartPort+1);
 	newsocket->startThread();
 	this->sendSockets.push_back(newsocket);

@@ -18,14 +18,16 @@ class SendDatagramSocket : public MyDatagramSocket
 		int sendid;
 		char buffers[128][2161];
 		bool onSend;
-		char packageId;
+		char sendPackageId;
+		char receivePackageId;
 		char waitTime;
 		SendDatagramSocket()
 		{
 			for(int i=0;i<128;i++)
 			  buffers[i][0]=-1;
 			sendid=0;
-			packageId=0;
+			receivePackageId=0;
+			sendPackageId=0;
 			waitTime=0;
 			receiveAddressString="";
 			remoteAddress=new SocketAddress;

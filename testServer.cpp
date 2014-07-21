@@ -4,7 +4,7 @@
 
 int main(int argc, char **argv)
 {
-	Poco::Net::SocketAddress socketAddress(Poco::Net::IPAddress(), 10085);
+	Poco::Net::SocketAddress socketAddress("0.0.0.0",5002);
 	Poco::Net::DatagramSocket datagramSocket(socketAddress);
 
 	char buffer[1024];
@@ -15,8 +15,9 @@ int main(int argc, char **argv)
 		Poco::Net::SocketAddress sender;
 		int n = datagramSocket.receiveFrom(buffer, sizeof(buffer) - 1, sender);
 		buffer[n] = '\0';
-		if(count%1000000==0)
-		  std::cout << sender.toString() << ": " << buffer << std::endl;
+		//if(count%1000000==0)
+		std::cout << sender.toString() << ": " << buffer << std::endl;
+		datagramSocket.sendTo(buffer,n, sender);
 	}
 
 	return 0;

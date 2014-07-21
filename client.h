@@ -15,15 +15,25 @@ class SendDatagramSocket : public MyDatagramSocket
 		SocketAddress *remoteAddress;
 		SocketAddress *receiveAddress;
 		int sendPortNum;
-		unsigned char packageId;
+		char sendPackageId;
+		char buffers[128][2161];
+		bool onSend;
+		char receivePackageId;
+		char waitTime; 
 		SendDatagramSocket()
 		{
-			packageId=0;
+			for(int i=0;i<128;i++)
+			  buffers[i][0]=-1;
+			sendPackageId=0;
+			receivePackageId=0;
+			onSend=0;
+			waitTime=0;
 			sendPortNum=0;
 			remoteAddress=new SocketAddress;
 			receiveAddress=new SocketAddress;
 		}
 		void run();
+		void send();
 		void startThread();
 };
 
