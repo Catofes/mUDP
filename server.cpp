@@ -56,7 +56,7 @@ void SendDatagramSocket::send(SocketAddress *sender)
 	if(this->onSend==1)return;
 	this->onSend=1;
 	int maxloop=0;
-	if(this->waitTime>24){
+	if(this->waitTime>6){
 		while(this->buffers[this->receivePackageId][0]<0&&maxloop<32)
 		  this->receivePackageId=(this->receivePackageId+1)%128;
 		this->waitTime=0;
