@@ -16,13 +16,13 @@ class SendDatagramSocket : public MyDatagramSocket
 		SocketAddress *receiveAddress;
 		string receiveAddressString;
 		int sendid;
-		char buffers[64][2161];
+		char buffers[128][2161];
 		bool onSend;
 		char packageId;
 		char waitTime;
 		SendDatagramSocket()
 		{
-			for(int i=0;i<64;i++)
+			for(int i=0;i<128;i++)
 			  buffers[i][0]=-1;
 			sendid=0;
 			packageId=0;

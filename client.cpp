@@ -63,7 +63,7 @@ void Sender::send(char * buffer,int n, SocketAddress *sender)
 #ifdef DEBUG
 			cout<<"SEND:"<<sender->toString()<<" -> "<<SendToAddress.toString()<<buffer[0]<<endl;
 #endif
-			this->sendSockets[i]->packageId=(this->sendSockets[i]->packageId+1)%64;
+			this->sendSockets[i]->packageId=(this->sendSockets[i]->packageId+1)%128;
 			return ;
 		}
 	}

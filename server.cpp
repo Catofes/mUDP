@@ -51,25 +51,29 @@ void SendDatagramSocket::startThread()
 void SendDatagramSocket::send(SocketAddress *sender)
 {
 	if(this->onSend==1)return;
+	this->onSend=1;
 	int maxloop=0;
 	if(this->waitTime>24){
-	  while(this->buffers[this->packageId][0]<0&&maxloop<64)
-		this->packageId=(this->packageId+1)%64;
+	  while(this->buffers[this->packageId][0]<0&&maxloop<32)
+		this->packageId=(this->packageId+1)%128;
 	  this->waitTime=0;
+	  cout<<"呵呵"<<endl;
 	}
 	maxloop=0;
-	while(this->buffers[this->packageId][0]>=0&&maxloop<64){
+	while(this->buffers[this->packageId][0]>=0&&maxloop<32){
 		int n;
 		memcpy(&n,this->buffers[this->packageId]+1,sizeof(int));
-		this->sendTo(this->buffers[this->packageId]+5,n,*(this->remoteAddress));
+		cout<<this->buffers[this->packageId][0];
+		this->sendBytes(this->buffers[this->packageId]+5,n);
 #ifdef DEBUG
 			cout<<sender->toString()<<" -> "<<this->remoteAddress->toString()<<this->buffers[this->packageId][0]<<endl;
 #endif
 		this->buffers[this->packageId][0]=-1;
-		this->packageId=(this->packageId+1)%64;
+		this->packageId=(this->packageId+1)%128;
 		this->waitTime--;
 		maxloop++;
 	}
+	this->onSend=0;
 	return;
 }
 
@@ -77,7 +81,8 @@ void Sender::send(char * buffer,int n, SocketAddress *sender)
 {
 	for(int i=this->sendSockets.size()-1;i>=0;i--){
 		if(sender->toString()==this->sendSockets[i]->receiveAddress->toString()){
-			char id=buffer[0]%64;
+			char id=buffer[0]%128;
+			//if(id!=(this->sendSockets[i]->packageId))cout<<"*";
 			memcpy(this->sendSockets[i]->buffers[id]+1,buffer+1,n*sizeof(char));
 			this->sendSockets[i]->buffers[id][0]=buffer[0];
 			this->sendSockets[i]->waitTime++;
@@ -95,6 +100,7 @@ void Sender::AddSocket(SocketAddress *sender)
 	newsocket->receiveAddress=new SocketAddress(*sender);
 	newsocket->receiveAddressString=newsocket->receiveAddress->toString();
 	newsocket->remoteAddress=new SocketAddress(connectAddress);
+	newsocket->connect(*(newsocket->remoteAddress));
 	newsocket->startThread();
 	this->sendSockets.push_back(newsocket);
 }
