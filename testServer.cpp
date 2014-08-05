@@ -15,8 +15,7 @@ int main(int argc, char **argv)
 		Poco::Net::SocketAddress sender;
 		int n = datagramSocket.receiveFrom(buffer, sizeof(buffer) - 1, sender);
 		buffer[n] = '\0';
-		if(count%1000000==0)
-		  std::cout << sender.toString() << ": " << buffer << std::endl;
+		std::cout << sender.toString() << ": " << buffer << std::endl;
 	}
 
 	return 0;

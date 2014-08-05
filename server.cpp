@@ -1,157 +1,217 @@
+#define __USE_BSD  /* 使用BSD风格的结构定义 */ 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#define __FAVOR_BSD /* use bsd'ish tcp header */ 
+#include <netinet/udp.h>
+#include <unistd.h>
+#include <signal.h>
+#include <arpa/inet.h>
+#include <errno.h>
 #include <iostream>
-#include <cstring>
+#include <stdio.h>
+#include <string.h>
 #include <string>
-#include <vector>
 #include <stdlib.h>
-#include <pthread.h>
-#include "Poco/Net/DatagramSocket.h"
-#include "Poco/Net/IPAddress.h"
-#include "Poco/Exception.h" 
-#include "server.h"
+#include <map>
 using namespace std;
-using namespace Poco;
-using namespace Poco::Net;
 
-//#define DEBUG
+#define DEBUG
 
-typedef void* (*FUNC)(void*);
+int startport=9000;
+int endport=9100;
+struct sockaddr_in local;
+struct sockaddr_in remote;
+int local_startport=20000;
+int local_endport=30000;
+int local_port=20000;
 
-int N=10;
-ReceiveDatagramSocket *listener;
-SocketAddress connectAddress("127.0.0.1",10085);
+struct pesudo_udphdr {
+	unsigned int saddr, daddr;
+	unsigned char unused;
+	unsigned char protocol;
+	unsigned short udplen;
+};
 
-void SendDatagramSocket::run()
+struct info{
+	pesudo_udphdr head;
+	udphdr	port;
+	sockaddr_in dst;
+};
+
+map<string,info> client_info;
+map<int,info> server_info;
+
+unsigned short in_cksum(unsigned short *addr, int len) 
+{ 
+	int sum=0; 
+	unsigned short res=0; 
+	while( len > 1)  {   
+		sum += *addr++; 
+		len -=2; 
+	}   
+	if( len == 1) { 
+		*((unsigned char *)(&res))=*((unsigned char *)addr); 
+		sum += res; 
+	}   
+	sum = (sum >>16) + (sum & 0xffff); 
+	sum += (sum >>16) ; 
+	res = ~sum; 
+	return res; 
+} 
+
+
+void raw_send(char * buff, char * send_buff,int len,info sendinfo,int rawsock)
 {
-	while(true){
-		int n=receiveBytes(this->localbuffer,sizeof(this->localbuffer)-1,0);
-		if(n>0&&n<2048){
+	struct pesudo_udphdr *pudph=(struct pesudo_udphdr*)send_buff;
+	struct udphdr *udph=(struct udphdr*)(send_buff+sizeof(struct pesudo_udphdr));
+	char *data=(char *)(udph+1);
+
+	strcpy(data, buff);
+	pudph->saddr=sendinfo.head.saddr;
+	pudph->daddr=sendinfo.head.daddr;
+	pudph->unused=0;
+	pudph->protocol=IPPROTO_UDP;
+	pudph->udplen=htons(8+strlen(data)+1);
+
+	udph->uh_sport=sendinfo.port.uh_sport;  /* port num already net_byte_order */
+	udph->uh_dport=sendinfo.port.uh_dport;
+	udph->uh_ulen=pudph->udplen;
+	udph->uh_sum=0;
+
+	/* include pesudo header and udp header*/
+	udph->uh_sum=in_cksum((unsigned short*)pudph, 12+8+strlen(data)+1);
+	len=sendto(rawsock, udph, 8+strlen(data)+1, 0,
+				(struct sockaddr *)&(sendinfo.dst), sizeof(sendinfo.dst));
+	if( len < 0)
+	  perror("sendto() error");
+	else
+	  printf("sendto() send %d bytes\n", len);
+
+}
+
+void dump(char *buff,char *send_buff,int len,int rawsock)
+{
+	struct ip *iph=(struct ip *)buff;
+	int i=iph->ip_hl*4;
+	struct udphdr *udph=(struct udphdr *)&buff[i];
+	char *data=(char *)(udph+1);
+	//first get src ip and port infomation
+	string src_ip_port = inet_ntoa(iph->ip_src);
+	src_ip_port=src_ip_port+":"+to_string(udph->uh_sport);
+	//then judge if this connection is establish
+	map<string,info>::iterator info_to_send;
+	info_to_send=client_info.find(src_ip_port);
 #ifdef DEBUG
-			cout<<this->remoteAddress->toString()<<" -> "<<this->receiveAddress->toString()<<endl;			
+	//cout<<"Data receive From :"<<src_ip_port<<endl;
 #endif
-			if(rand()%((n-50)>0?n-50:1)<50)
-			  if(rand()%100<30){
-				  this->sendid=rand()%N;
-			  }else{
-				  rand()%N;
-			  }
-			listener[this->sendid].sendTo(this->localbuffer, n, *(this->receiveAddress));
+	if(info_to_send==client_info.end()){
+		//if client_info don't have any info
+		if(ntohs(udph->uh_dport)<=endport&&ntohs(udph->uh_dport)>=startport&&iph->ip_dst.s_addr==local.sin_addr.s_addr){
+			//this is a new connection from client
+			//prepare head
+			info newinfo;
+			newinfo.head.saddr=local.sin_addr.s_addr;
+			newinfo.head.daddr=remote.sin_addr.s_addr;
+			newinfo.head.unused=0;
+			newinfo.head.protocol=IPPROTO_UDP;
+
+			//generate send port
+			int newport=local_port;
+			local_port++;
+			if(local_port>local_endport)
+			  local_port=local_startport;
+
+			newinfo.port.uh_sport=htons(newport);
+			newinfo.port.uh_dport=remote.sin_port;
+
+			newinfo.dst.sin_addr=remote.sin_addr;
+			newinfo.dst.sin_port=remote.sin_port;
+			newinfo.dst.sin_family=AF_INET;
+
+			client_info.insert(std::pair<string,info>(src_ip_port,newinfo));
+
+			//prepare server_info
+			newinfo.head.saddr=local.sin_addr.s_addr;
+			newinfo.head.daddr=iph->ip_src.s_addr;
+			newinfo.head.unused=0;
+			newinfo.head.protocol=IPPROTO_UDP;
+
+			newinfo.port.uh_sport=startport+rand()%(endport-startport+1);
+			newinfo.port.uh_dport=udph->uh_sport;
+
+			newinfo.dst.sin_addr=iph->ip_src;
+			newinfo.dst.sin_port=udph->uh_sport;
+			newinfo.dst.sin_family=AF_INET;
+
+			server_info[newport]=newinfo;
+#ifdef DEBUG
+			cout<<"New Connection Establish, Use Port: "<<newport<<endl;
+#endif
 		}
 	}
-}
-
-void SendDatagramSocket::startThread()
-{
-	FUNC callback = (FUNC)&SendDatagramSocket::run;
-	pthread_create(&(this->tids),NULL,callback,this);
-#ifdef DEBUG
-	cout<<"Create new thread at :"<<this->tids<<endl;
+	//research
+	info_to_send=client_info.find(src_ip_port);
+	if(info_to_send!=client_info.end()){
+		raw_send(data,send_buff,len,info_to_send->second,rawsock);
+#ifdef DEBUG	
+		printf("From %s:%d to %s:%d len=%d iphdr_len=%d ip_len=%d\n",
+					inet_ntoa(iph->ip_src),
+					ntohs(udph->uh_sport),
+					inet_ntoa(iph->ip_dst),
+					ntohs(udph->uh_dport),
+					len, i, ntohs(iph->ip_len)
+			  );
 #endif
-}
-
-void SendDatagramSocket::send(SocketAddress *sender)
-{
-	if(this->onSend==1)return;
-	this->onSend=1;
-	int maxloop=0;
-	if(this->waitTime>24){
-	  while(this->buffers[this->packageId][0]<0&&maxloop<32)
-		this->packageId=(this->packageId+1)%128;
-	  this->waitTime=0;
-	  cout<<"呵呵"<<endl;
 	}
-	maxloop=0;
-	while(this->buffers[this->packageId][0]>=0&&maxloop<32){
-		int n;
-		memcpy(&n,this->buffers[this->packageId]+1,sizeof(int));
-		cout<<this->buffers[this->packageId][0];
-		this->sendBytes(this->buffers[this->packageId]+5,n);
-#ifdef DEBUG
-			cout<<sender->toString()<<" -> "<<this->remoteAddress->toString()<<this->buffers[this->packageId][0]<<endl;
+	map<int,info>::iterator info_to_get;
+	info_to_get=server_info.find(ntohs(udph->uh_dport));
+	if(info_to_get!=server_info.end()){
+		info_to_get->second.port.uh_sport=startport+rand()%(endport-startport+1);
+		raw_send(data,send_buff,len,info_to_get->second,rawsock);
+#ifdef DEBUG	
+		printf("From %s:%d to %s:%d len=%d iphdr_len=%d ip_len=%d\n",
+					inet_ntoa(iph->ip_src),
+					ntohs(udph->uh_sport),
+					inet_ntoa(iph->ip_dst),
+					ntohs(udph->uh_dport),
+					len, i, ntohs(iph->ip_len)
+			  );
 #endif
-		this->buffers[this->packageId][0]=-1;
-		this->packageId=(this->packageId+1)%128;
-		this->waitTime--;
-		maxloop++;
-	}
-	this->onSend=0;
-	return;
-}
-
-void Sender::send(char * buffer,int n, SocketAddress *sender)
-{
-	for(int i=this->sendSockets.size()-1;i>=0;i--){
-		if(sender->toString()==this->sendSockets[i]->receiveAddress->toString()){
-			char id=buffer[0]%128;
-			//if(id!=(this->sendSockets[i]->packageId))cout<<"*";
-			memcpy(this->sendSockets[i]->buffers[id]+1,buffer+1,n*sizeof(char));
-			this->sendSockets[i]->buffers[id][0]=buffer[0];
-			this->sendSockets[i]->waitTime++;
-			this->sendSockets[i]->send(sender);
-			return ;
-		}
-	}
-	AddSocket(sender);
-	send(buffer,n,sender);
-}
-
-void Sender::AddSocket(SocketAddress *sender)
-{
-	SendDatagramSocket *newsocket=new SendDatagramSocket;
-	newsocket->receiveAddress=new SocketAddress(*sender);
-	newsocket->receiveAddressString=newsocket->receiveAddress->toString();
-	newsocket->remoteAddress=new SocketAddress(connectAddress);
-	newsocket->connect(*(newsocket->remoteAddress));
-	newsocket->startThread();
-	this->sendSockets.push_back(newsocket);
-}
-
-void ReceiveDatagramSocket::init(string ipAddress, int Port,Sender *isender)
-{
-	this->listeningAddress=new SocketAddress(ipAddress,Port);
-	this->receiveAddress=new SocketAddress();
-	this->bind(*(this->listeningAddress));
-	this->sender=isender;
-}
-
-void ReceiveDatagramSocket::run()
-{
-	while(true){
-		int n=this->receiveFrom(this->localbuffer, sizeof(this->localbuffer)-1, *(this->receiveAddress));
-		if(n>0&&n<2048)
-		  sender->send(this->localbuffer, n,this->receiveAddress);
 	}
 }
 
-void ReceiveDatagramSocket::startThread()
+int main(int argc, char *argv[])
 {
-	FUNC callback = (FUNC)&ReceiveDatagramSocket::run;
-	pthread_create(&(this->tids),NULL,callback,this);
-	cout<<"Start Listening at: "<<this->listeningAddress->toString()<<endl;
-}
+	int rawsock,len;
+	char buff[8196];
+	char sendbuf[8192];
+	if(argc != 5) {
+		printf("usage: %s localip localport remoteip remoteport\n",argv[0]);
+		exit(1);
+	}
+	if( inet_aton(argv[1], &local.sin_addr) == 0) {
+		printf("bad localip:%s\n", argv[1]);
+		exit(1);
+	}
+	if( inet_aton(argv[3], &remote.sin_addr) == 0) {
+		printf("bad remoteip:%s\n", argv[3]);
+		exit(1);
+	}
+	local.sin_port=htons(atoi(argv[2]));
+	remote.sin_port=htons(atoi(argv[4]));
+	local.sin_family=AF_INET;
+	remote.sin_family=AF_INET;
 
-int main(int argc, char **argv)
-{
-	if (argc < 5){
-		cout<<"Please Input STARTPORT ENDPORT REMOTEIPADDR REMOTEPORT."<<endl;
-		return 0;
+	rawsock=socket(PF_INET, SOCK_RAW, IPPROTO_UDP);
+	if( rawsock < 0) {
+		perror("socket");
+		exit(1);
 	}
-	int startport=atoi(argv[1]);
-	N=atoi(argv[2])-startport+1;
-	if(N<=0){
-		cout<<"Error Input"<<endl;
-		return 0;
+	while( (len=read(rawsock, buff, 8192)) > 0) {
+		dump(buff,sendbuf,len,rawsock);
 	}
-	string remoteipaddr=argv[3];
-	int port=atoi(argv[4]);
-	SocketAddress send(remoteipaddr,port);
-	connectAddress=send;
-	ReceiveDatagramSocket temp[N];
-	listener=new ReceiveDatagramSocket[N];
-	Sender sender;
-	for(int i=0;i<N;i++){
-		listener[i].init("0.0.0.0",startport+i, &sender);
-		listener[i].startThread();
-	}
-	pthread_exit(NULL);
+	close(rawsock);
+	exit(0);
 }
 
