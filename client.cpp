@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <string>
-#include <string.h>
+#include <cstring>
 #include <vector>
 #include <stdlib.h>
 #include <pthread.h>
@@ -49,7 +49,6 @@ void Sender::send(char * buffer,int n, SocketAddress *sender)
 {
 	for(int i=this->sendSockets.size()-1;i>=0;i--){
 		if(sender->toString()==this->sendSockets[i]->receiveAddress->toString()){
-			buffer[0]=this->sendSockets[i]->packageId;
 			if(rand()%((n-50)>0?n-50:1)<50)
 			  if(rand()%100<30){
 				  this->sendSockets[i]->sendPortNum=StartPort+rand()%(EndPort-StartPort+1);
@@ -61,9 +60,8 @@ void Sender::send(char * buffer,int n, SocketAddress *sender)
 			SocketAddress SendToAddress(Host,this->sendSockets[i]->sendPortNum);
 			sendSockets[i]->sendTo(buffer,n,SendToAddress);
 #ifdef DEBUG
-			cout<<"SEND:"<<sender->toString()<<" -> "<<SendToAddress.toString()<<buffer[0]<<endl;
+			cout<<"SEND:"<<sender->toString()<<" -> "<<SendToAddress.toString()<<endl;
 #endif
-			this->sendSockets[i]->packageId=(this->sendSockets[i]->packageId+1)%128;
 			return ;
 		}
 	}
@@ -92,10 +90,9 @@ void ReceiveDatagramSocket::init(string ipAddress, int Port,Sender *isender)
 void ReceiveDatagramSocket::run()
 {
 	while(true){
-		int n=this->receiveFrom(this->localbuffer+5, sizeof(this->localbuffer)-5, *(this->receiveAddress));
-		memcpy(this->localbuffer+1,&n,sizeof(int));
+		int n=this->receiveFrom(this->localbuffer, sizeof(this->localbuffer)-1, *(this->receiveAddress));
 		if(n>0&&n<2048)
-		  sender->send(this->localbuffer, n+5,this->receiveAddress);
+		  sender->send(this->localbuffer, n,this->receiveAddress);
 	}
 }
 

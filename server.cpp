@@ -16,7 +16,7 @@
 #include <map>
 using namespace std;
 
-#define DEBUG
+//#define DEBUG
 
 int startport=9000;
 int endport=9100;
@@ -64,31 +64,43 @@ unsigned short in_cksum(unsigned short *addr, int len)
 void raw_send(char * buff, char * send_buff,int len,info sendinfo,int rawsock)
 {
 	struct pesudo_udphdr *pudph=(struct pesudo_udphdr*)send_buff;
-	struct udphdr *udph=(struct udphdr*)(send_buff+sizeof(struct pesudo_udphdr));
+	struct udphdr *udph=(struct udphdr*)(8+send_buff+sizeof(struct pesudo_udphdr));
 	char *data=(char *)(udph+1);
-
-	strcpy(data, buff);
+	cout<<sizeof(struct pesudo_udphdr)<<endl;
+	memcpy(data, buff,len-28);
 	pudph->saddr=sendinfo.head.saddr;
 	pudph->daddr=sendinfo.head.daddr;
 	pudph->unused=0;
 	pudph->protocol=IPPROTO_UDP;
-	pudph->udplen=htons(8+strlen(data)+1);
+	pudph->udplen=htons(len-20);
 
-	udph->uh_sport=sendinfo.port.uh_sport;  /* port num already net_byte_order */
+	udph->uh_sport=sendinfo.port.uh_sport;
 	udph->uh_dport=sendinfo.port.uh_dport;
-	udph->uh_ulen=pudph->udplen;
+	udph->uh_ulen=htons(len-20);
 	udph->uh_sum=0;
-
+	
 	/* include pesudo header and udp header*/
-	udph->uh_sum=in_cksum((unsigned short*)pudph, 12+8+strlen(data)+1);
-	len=sendto(rawsock, udph, 8+strlen(data)+1, 0,
+	udph->uh_sum=in_cksum((unsigned short*)pudph, len);
+	int sendlen=sendto(rawsock, udph, len-12, 0,
 				(struct sockaddr *)&(sendinfo.dst), sizeof(sendinfo.dst));
-	if( len < 0)
+	
+#ifdef DEBUG
+	if( sendlen < 0)
 	  perror("sendto() error");
-	else
+	else{
 	  printf("sendto() send %d bytes\n", len);
-
+	
+	printf("Send %s:%d to %s:%d len=%d  ip_len=%d\n", 
+				"local", 
+				ntohs(udph->uh_sport), 
+				inet_ntoa(sendinfo.dst.sin_addr), 
+				ntohs(sendinfo.dst.sin_port), 
+				len, ntohs(pudph->udplen) 
+		  );
+	}
+#endif
 }
+
 
 void dump(char *buff,char *send_buff,int len,int rawsock)
 {
@@ -132,12 +144,13 @@ void dump(char *buff,char *send_buff,int len,int rawsock)
 			client_info.insert(std::pair<string,info>(src_ip_port,newinfo));
 
 			//prepare server_info
-			newinfo.head.saddr=local.sin_addr.s_addr;
+			newinfo.head.saddr=iph->ip_dst.s_addr;
 			newinfo.head.daddr=iph->ip_src.s_addr;
 			newinfo.head.unused=0;
 			newinfo.head.protocol=IPPROTO_UDP;
 
-			newinfo.port.uh_sport=startport+rand()%(endport-startport+1);
+			newinfo.port.uh_sport=htons(startport+rand()%(endport-startport+1));
+			//newinfo.port.uh_sport=udph->uh_dport;
 			newinfo.port.uh_dport=udph->uh_sport;
 
 			newinfo.dst.sin_addr=iph->ip_src;
@@ -153,7 +166,6 @@ void dump(char *buff,char *send_buff,int len,int rawsock)
 	//research
 	info_to_send=client_info.find(src_ip_port);
 	if(info_to_send!=client_info.end()){
-		raw_send(data,send_buff,len,info_to_send->second,rawsock);
 #ifdef DEBUG	
 		printf("From %s:%d to %s:%d len=%d iphdr_len=%d ip_len=%d\n",
 					inet_ntoa(iph->ip_src),
@@ -163,12 +175,13 @@ void dump(char *buff,char *send_buff,int len,int rawsock)
 					len, i, ntohs(iph->ip_len)
 			  );
 #endif
+		raw_send(data,send_buff,len,info_to_send->second,rawsock);
+		return;
 	}
 	map<int,info>::iterator info_to_get;
 	info_to_get=server_info.find(ntohs(udph->uh_dport));
 	if(info_to_get!=server_info.end()){
-		info_to_get->second.port.uh_sport=startport+rand()%(endport-startport+1);
-		raw_send(data,send_buff,len,info_to_get->second,rawsock);
+		info_to_get->second.port.uh_sport=htons(startport+rand()%(endport-startport+1));
 #ifdef DEBUG	
 		printf("From %s:%d to %s:%d len=%d iphdr_len=%d ip_len=%d\n",
 					inet_ntoa(iph->ip_src),
@@ -178,7 +191,19 @@ void dump(char *buff,char *send_buff,int len,int rawsock)
 					len, i, ntohs(iph->ip_len)
 			  );
 #endif
+		raw_send(data,send_buff,len,info_to_get->second,rawsock);
+		return;
 	}
+	return;
+	cout<<"ERROR"<<endl;
+	printf("From %s:%d to %s:%d len=%d iphdr_len=%d ip_len=%d\n",
+				inet_ntoa(iph->ip_src),
+				ntohs(udph->uh_sport),
+				inet_ntoa(iph->ip_dst),
+				ntohs(udph->uh_dport),
+				len, i, ntohs(iph->ip_len)
+		  );
+
 }
 
 int main(int argc, char *argv[])
@@ -186,20 +211,22 @@ int main(int argc, char *argv[])
 	int rawsock,len;
 	char buff[8196];
 	char sendbuf[8192];
-	if(argc != 5) {
-		printf("usage: %s localip localport remoteip remoteport\n",argv[0]);
+	if(argc < 5) {
+		printf("usage: %s localip startport endport remoteip remoteport (local_startport local_remoteport) \n",argv[0]);
 		exit(1);
 	}
 	if( inet_aton(argv[1], &local.sin_addr) == 0) {
 		printf("bad localip:%s\n", argv[1]);
 		exit(1);
 	}
-	if( inet_aton(argv[3], &remote.sin_addr) == 0) {
-		printf("bad remoteip:%s\n", argv[3]);
+	if( inet_aton(argv[4], &remote.sin_addr) == 0) {
+		printf("bad remoteip:%s\n", argv[4]);
 		exit(1);
 	}
 	local.sin_port=htons(atoi(argv[2]));
-	remote.sin_port=htons(atoi(argv[4]));
+	startport=atoi(argv[3]);
+	endport=atoi(argv[4]);
+	remote.sin_port=htons(atoi(argv[5]));
 	local.sin_family=AF_INET;
 	remote.sin_family=AF_INET;
 

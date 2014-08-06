@@ -15,10 +15,8 @@ class SendDatagramSocket : public MyDatagramSocket
 		SocketAddress *remoteAddress;
 		SocketAddress *receiveAddress;
 		int sendPortNum;
-		unsigned char packageId;
 		SendDatagramSocket()
 		{
-			packageId=0;
 			sendPortNum=0;
 			remoteAddress=new SocketAddress;
 			receiveAddress=new SocketAddress;
