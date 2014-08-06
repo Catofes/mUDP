@@ -224,8 +224,8 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	local.sin_port=htons(atoi(argv[2]));
-	startport=atoi(argv[3]);
-	endport=atoi(argv[4]);
+	startport=atoi(argv[2]);
+	endport=atoi(argv[3]);
 	remote.sin_port=htons(atoi(argv[5]));
 	local.sin_family=AF_INET;
 	remote.sin_family=AF_INET;
