@@ -11,7 +11,11 @@ You Need LIBPOCO to Make and Run.
 
 make 
 
-Use ./server.out STARTPORT ENDPORT REMOTEIPADDR REMOTEPORT to run.
+Use ./server.out LOCALIP STARTPORT ENDPORT REMOTEIPADDR REMOTEPORT to run.
+
+Due to RAW_SOCKET. You need to block icmp package which type 3 (Destination Unreachable). You can use iptables to do this.
+
+sudo iptables -A OUTPUT -p icmp --icmp-type 3 -j DROP
 
 ####Client
 
@@ -23,7 +27,7 @@ Use ./client.out IPADDR STARTPORT ENDPORT LOCALPORT to run.
 
 	Server A:	ip 1.2.3.4 		Openvpn server listen on udp:8888
 	
-	Server B:	ip 1.2.3.5		./server.out 10000 10010 1.2.3.4 8888
+	Server B:	ip 1.2.3.5		./server.out 1.2.3.4 10000 10010 1.2.3.4 8888
 	
 	Client B:	ip 8.8.8.8		./client.out 1.2.3.5 10000 10010 9999
 	
@@ -31,8 +35,8 @@ Use ./client.out IPADDR STARTPORT ENDPORT LOCALPORT to run.
 
 OR
 
-	Server :	ip 1.2.3.4		Openvpn server listen on udp:127.0.0.1:8888
-								./server.out 10000 10010 127.0.0.1 8888
+	Server :	ip 1.2.3.4		Openvpn server listen on udp:1.2.3.4:8888
+								./server.out 1.2.3.4 10000 10010 1.2.3.4 8888
 	
 	Client :	ip 8.8.8.8		./client.out 1.2.3.4 10000 10010 9999
 								Openvpn client connect to 127.0.0.1 9999
