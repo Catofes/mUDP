@@ -16,7 +16,7 @@
 #include <map>
 using namespace std;
 
-//#define DEBUG
+#define DEBUG
 
 int startport=9000;
 int endport=9100;
@@ -37,6 +37,7 @@ struct info{
 	pesudo_udphdr head;
 	udphdr	port;
 	sockaddr_in dst;
+	int newport;
 };
 
 map<string,info> client_info;
@@ -66,7 +67,6 @@ void raw_send(char * buff, char * send_buff,int len,info sendinfo,int rawsock)
 	struct pesudo_udphdr *pudph=(struct pesudo_udphdr*)send_buff;
 	struct udphdr *udph=(struct udphdr*)(8+send_buff+sizeof(struct pesudo_udphdr));
 	char *data=(char *)(udph+1);
-	cout<<sizeof(struct pesudo_udphdr)<<endl;
 	memcpy(data, buff,len-28);
 	pudph->saddr=sendinfo.head.saddr;
 	pudph->daddr=sendinfo.head.daddr;
@@ -140,7 +140,8 @@ void dump(char *buff,char *send_buff,int len,int rawsock)
 			newinfo.dst.sin_addr=remote.sin_addr;
 			newinfo.dst.sin_port=remote.sin_port;
 			newinfo.dst.sin_family=AF_INET;
-
+			
+			newinfo.newport=newport;
 			client_info.insert(std::pair<string,info>(src_ip_port,newinfo));
 
 			//prepare server_info
@@ -149,8 +150,8 @@ void dump(char *buff,char *send_buff,int len,int rawsock)
 			newinfo.head.unused=0;
 			newinfo.head.protocol=IPPROTO_UDP;
 
-			newinfo.port.uh_sport=htons(startport+rand()%(endport-startport+1));
-			//newinfo.port.uh_sport=udph->uh_dport;
+			//newinfo.port.uh_sport=htons(startport+rand()%(endport-startport+1));
+			newinfo.port.uh_sport=udph->uh_dport;
 			newinfo.port.uh_dport=udph->uh_sport;
 
 			newinfo.dst.sin_addr=iph->ip_src;
@@ -166,7 +167,7 @@ void dump(char *buff,char *send_buff,int len,int rawsock)
 	//research
 	info_to_send=client_info.find(src_ip_port);
 	if(info_to_send!=client_info.end()){
-#ifdef DEBUG	
+#ifdef DEBUG
 		printf("From %s:%d to %s:%d len=%d iphdr_len=%d ip_len=%d\n",
 					inet_ntoa(iph->ip_src),
 					ntohs(udph->uh_sport),
@@ -175,13 +176,14 @@ void dump(char *buff,char *send_buff,int len,int rawsock)
 					len, i, ntohs(iph->ip_len)
 			  );
 #endif
+		server_info[info_to_send->second.newport].port.uh_sport=udph->uh_dport;
 		raw_send(data,send_buff,len,info_to_send->second,rawsock);
 		return;
 	}
 	map<int,info>::iterator info_to_get;
 	info_to_get=server_info.find(ntohs(udph->uh_dport));
 	if(info_to_get!=server_info.end()){
-		info_to_get->second.port.uh_sport=htons(startport+rand()%(endport-startport+1));
+		//info_to_get->second.port.uh_sport=htons(startport+rand()%(endport-startport+1));
 #ifdef DEBUG	
 		printf("From %s:%d to %s:%d len=%d iphdr_len=%d ip_len=%d\n",
 					inet_ntoa(iph->ip_src),
