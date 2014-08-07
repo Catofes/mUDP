@@ -13,7 +13,7 @@ using namespace std;
 using namespace Poco;
 using namespace Poco::Net;
 
-#define DEBUG
+//#define DEBUG
 
 typedef void* (*FUNC)(void*);
 

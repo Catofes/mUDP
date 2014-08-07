@@ -16,7 +16,7 @@
 #include <map>
 using namespace std;
 
-#define DEBUG
+//#define DEBUG
 
 int startport=9000;
 int endport=9100;
