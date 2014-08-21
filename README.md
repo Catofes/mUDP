@@ -23,6 +23,8 @@ make
 
 Use ./client.out IPADDR STARTPORT ENDPORT LOCALPORT to run.
 
+The client must NOT under SNAT.
+
 ####Example
 
 	Server A:	ip 1.2.3.4 		Openvpn server listen on udp:8888
@@ -40,3 +42,8 @@ OR
 	
 	Client :	ip 8.8.8.8		./client.out 1.2.3.4 10000 10010 9999
 								Openvpn client connect to 127.0.0.1 9999
+
+####To Do:
+
+* There still have data out of order . So add package id in it and sort the package in the server.
+* Rewrite the client part. In order to solve the SNAT program.
